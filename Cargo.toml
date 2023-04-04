@@ -1,9 +1,11 @@
 [package]
 name = "perfect_rand"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "A cipher for randomizing numbers in an arbitrary range."
 license = "Unlicense"
+repository = "https://github.com/mat-1/perfect_rand"
+keywords = ["blackrock", "cipher"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
