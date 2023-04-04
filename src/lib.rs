@@ -9,7 +9,6 @@
 //!
 //! ```
 //! //! Print 10 random Ipv4 addresses.
-//!
 //! # use std::net::Ipv4Addr;
 //! # use perfect_rand::PerfectRng;
 //!
@@ -310,7 +309,6 @@ impl PerfectRng {
     ///
     /// ```
     /// # use perfect_rand::PerfectRng;
-    ///
     /// let randomizer = PerfectRng::from_range(100);
     /// for i in 0..100 {
     ///     let shuffled_i = randomizer.shuffle(i);
