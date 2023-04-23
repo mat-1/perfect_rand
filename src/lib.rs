@@ -9,6 +9,7 @@
 //!
 //! ```
 //! //! Print 10 random Ipv4 addresses.
+//!
 //! # use std::net::Ipv4Addr;
 //! # use perfect_rand::PerfectRng;
 //!
@@ -187,11 +188,11 @@ impl PerfectRng {
     /// - `range`: The highest value you will try to shuffle. For example, this
     /// would be 2**32 for an IPv4 address.
     /// - `seed`: The seed used for randomization.
-    /// - `rounds`: The amount of times the randomization is done, to make it more random.
+    /// - `rounds`: The amount of times the randomization is done, to make it more random. Default is 3.
     #[must_use]
     pub fn new(range: u64, seed: u64, rounds: usize) -> Self {
-        let a = ((range as f64).sqrt() as u64).next_power_of_two();
-        let b = (range / a).next_power_of_two();
+        let a = ((range as f64).sqrt() as u64 - 1).next_power_of_two();
+        let b = (range / a - 1).next_power_of_two();
 
         PerfectRng {
             range,
@@ -252,6 +253,8 @@ impl PerfectRng {
             j += 1;
         }
 
+        dbg!(left, right, self.a_bits);
+
         if self.rounds % 2 != 0 {
             (left << self.a_bits) + right
         } else {
@@ -309,6 +312,7 @@ impl PerfectRng {
     ///
     /// ```
     /// # use perfect_rand::PerfectRng;
+    ///
     /// let randomizer = PerfectRng::from_range(100);
     /// for i in 0..100 {
     ///     let shuffled_i = randomizer.shuffle(i);
@@ -320,6 +324,7 @@ impl PerfectRng {
         let mut c = self.encrypt(m);
         while c >= self.range {
             c = self.encrypt(c);
+            dbg!(c);
         }
         c
     }
@@ -335,6 +340,8 @@ impl PerfectRng {
 
 #[cfg(test)]
 mod tests {
+    use ntest::timeout;
+
     use super::PerfectRng;
 
     #[test]
@@ -357,6 +364,18 @@ mod tests {
 
             for (i, number) in list.into_iter().enumerate() {
                 assert_eq!(number, 1, "Index: {i}, range: {range:?}");
+            }
+        }
+    }
+
+    #[test]
+    #[timeout(100)]
+    fn dont_get_stuck() {
+        for seed in 0..100 {
+            let randomizer = PerfectRng::new(10, seed, 3);
+
+            for i in 0..10 {
+                let _ = randomizer.shuffle(i);
             }
         }
     }
