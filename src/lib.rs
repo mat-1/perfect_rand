@@ -258,7 +258,7 @@ impl PerfectRng {
             j += 1;
         }
 
-        if self.rounds % 2 != 0 {
+        if j % 2 == 0 {
             (left << self.a_bits) + right
         } else {
             (right << self.a_bits) + left
@@ -346,36 +346,8 @@ mod tests {
 
     use super::PerfectRng;
 
-    #[test]
-    fn verify() {
-        let mut range = 3015 * 3;
-
-        for i in 0..5 {
-            range += 11 + i;
-            range *= 1 + i;
-
-            let randomizer = PerfectRng::new(range, 0, 6);
-            println!("randomizer: {randomizer:?}");
-
-            // make sure every number gets added exactly once
-            let mut list = vec![0; range as usize];
-            for i in 0..range {
-                let x = randomizer.shuffle(i) as usize;
-                list[x] += 1;
-            }
-
-            for (i, number) in list.into_iter().enumerate() {
-                assert_eq!(number, 1, "Index: {i}, range: {range:?}");
-            }
-        }
-    }
-
-    #[test]
-    #[timeout(1000)]
-    fn verify_range_10() {
-        let range = 10;
-
-        let randomizer = PerfectRng::new(range, 0, 3);
+    fn verify(range: u64, seed: u64, rounds: usize) {
+        let randomizer = PerfectRng::new(range, seed, rounds);
         println!("randomizer: {randomizer:?}");
 
         // make sure every number gets added exactly once
@@ -391,13 +363,31 @@ mod tests {
     }
 
     #[test]
+    #[timeout(1000)]
+    fn verify_ranges() {
+        let mut range = 3015 * 3;
+
+        for i in 0..5 {
+            range += 11 + i;
+            range *= 1 + i;
+
+            verify(range, 0, 6);
+        }
+
+        verify(10, 0, 3);
+        verify(100, 0, 3);
+    }
+
+    #[test]
     #[timeout(100)]
     fn dont_get_stuck() {
-        for seed in 0..100 {
-            let randomizer = PerfectRng::new(10, seed, 3);
+        for range in [10, 100] {
+            for seed in 0..100 {
+                let randomizer = PerfectRng::new(range, seed, 3);
 
-            for i in 0..10 {
-                let _ = randomizer.shuffle(i);
+                for i in 0..range {
+                    let _ = randomizer.shuffle(i);
+                }
             }
         }
     }
