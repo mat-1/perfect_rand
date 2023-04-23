@@ -189,6 +189,11 @@ impl PerfectRng {
     /// would be 2**32 for an IPv4 address.
     /// - `seed`: The seed used for randomization.
     /// - `rounds`: The amount of times the randomization is done, to make it more random. Default is 3.
+    ///
+    /// ```
+    /// # use perfect_rand::PerfectRng;
+    /// let perfect_rng = PerfectRng::new(10, rand::random(), 3);
+    /// ```
     #[must_use]
     pub fn new(range: u64, seed: u64, rounds: usize) -> Self {
         let a = ((range as f64).sqrt() as u64 - 1).next_power_of_two();
