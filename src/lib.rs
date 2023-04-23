@@ -258,8 +258,6 @@ impl PerfectRng {
             j += 1;
         }
 
-        dbg!(left, right, self.a_bits);
-
         if self.rounds % 2 != 0 {
             (left << self.a_bits) + right
         } else {
@@ -329,7 +327,6 @@ impl PerfectRng {
         let mut c = self.encrypt(m);
         while c >= self.range {
             c = self.encrypt(c);
-            dbg!(c);
         }
         c
     }
