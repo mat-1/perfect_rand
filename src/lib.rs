@@ -196,8 +196,8 @@ impl PerfectRng {
     /// ```
     #[must_use]
     pub fn new(range: u64, seed: u64, rounds: usize) -> Self {
-        let a = ((range as f64).sqrt() as u64 - 1).next_power_of_two();
-        let b = (range / a - 1).next_power_of_two();
+        let a = ((range as f64).sqrt() as u64 + 1).next_power_of_two();
+        let b = (range / a + 1).next_power_of_two();
 
         PerfectRng {
             range,
@@ -367,6 +367,26 @@ mod tests {
             for (i, number) in list.into_iter().enumerate() {
                 assert_eq!(number, 1, "Index: {i}, range: {range:?}");
             }
+        }
+    }
+
+    #[test]
+    #[timeout(1000)]
+    fn verify_range_10() {
+        let range = 10;
+
+        let randomizer = PerfectRng::new(range, 0, 3);
+        println!("randomizer: {randomizer:?}");
+
+        // make sure every number gets added exactly once
+        let mut list = vec![0; range as usize];
+        for i in 0..range {
+            let x = randomizer.shuffle(i) as usize;
+            list[x] += 1;
+        }
+
+        for (i, number) in list.into_iter().enumerate() {
+            assert_eq!(number, 1, "Index: {i}, range: {range:?}");
         }
     }
 
