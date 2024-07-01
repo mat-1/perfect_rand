@@ -25,22 +25,36 @@
 #[derive(Default, Debug)]
 pub struct PerfectRng {
     range: u64,
-    // a: u64,
-    // b: u64,
     seed: u64,
     rounds: usize,
     a_bits: u32,
     a_mask: u64,
-    // b_bits: u32,
     b_mask: u64,
 }
 
 fn count_bits(num: u64) -> u32 {
     let mut bits = 0;
-    while (num >> bits) > 1 {
+    while (num >> bits) != 0 {
         bits += 1;
     }
     bits
+}
+
+#[inline]
+fn sipround(mut v0: u64, mut v1: u64, mut v2: u64, mut v3: u64) -> (u64, u64, u64, u64) {
+    v0 = v0.wrapping_add(v1);
+    v2 = v2.wrapping_add(v3);
+    v1 = v1.rotate_left(13) ^ v0;
+    v3 = v3.rotate_left(16) ^ v2;
+    v0 = v0.rotate_left(32);
+
+    v2 = v2.wrapping_add(v1);
+    v0 = v0.wrapping_add(v3);
+    v1 = v1.rotate_left(17) ^ v2;
+    v3 = v3.rotate_left(21) ^ v0;
+    v2 = v2.rotate_left(32);
+
+    (v0, v1, v2, v3)
 }
 
 impl PerfectRng {
@@ -54,23 +68,25 @@ impl PerfectRng {
     ///
     /// ```
     /// # use perfect_rand::PerfectRng;
-    /// let perfect_rng = PerfectRng::new(10, rand::random(), 3);
+    /// let perfect_rng = PerfectRng::new(10, rand::random(), 4);
     /// ```
     #[must_use]
+    #[inline]
     pub fn new(range: u64, seed: u64, rounds: usize) -> Self {
-        let a = ((range as f64).sqrt() as u64 + 1).next_power_of_two();
-        let b = (range / a + 1).next_power_of_two();
+        assert_ne!(range, 0);
+
+        let bits = count_bits(range - 1);
+        let b = bits / 2;
+        // if an odd number of bits, a gets the leftover bit
+        let a = bits - b;
 
         PerfectRng {
             range,
-            // a,
-            // b,
             seed,
             rounds,
-            a_bits: count_bits(a),
-            a_mask: a - 1,
-            // b_bits: count_bits(b),
-            b_mask: b - 1,
+            a_bits: a,
+            a_mask: (1 << a) - 1,
+            b_mask: (1 << b) - 1,
         }
     }
 
@@ -82,39 +98,22 @@ impl PerfectRng {
     /// ```
     #[must_use]
     pub fn from_range(range: u64) -> Self {
-        Self::new(range, rand::random(), 3)
-    }
-
-    #[inline]
-    fn sipround(&self, mut v0: u64, mut v1: u64, mut v2: u64, mut v3: u64) -> (u64, u64, u64, u64) {
-        v0 = v0.wrapping_add(v1);
-        v2 = v2.wrapping_add(v3);
-        v1 = v1.rotate_left(13) ^ v0;
-        v3 = v3.rotate_left(16) ^ v2;
-        v0 = v0.rotate_left(32);
-
-        v2 = v2.wrapping_add(v1);
-        v0 = v0.wrapping_add(v3);
-        v1 = v1.rotate_left(17) ^ v2;
-        v3 = v3.rotate_left(21) ^ v0;
-        v2 = v2.rotate_left(32);
-
-        (v0, v1, v2, v3)
+        Self::new(range, rand::random(), 4)
     }
 
     #[inline]
     fn round(&self, j: usize, right: u64) -> u64 {
-        let mut v0 = j as u64;
-        let mut v1 = right;
-        let mut v2 = self.seed;
+        let v0 = self.seed;
+        let v1 = j as u64;
+        let v2 = right;
         // all zeroes will lead to an all-zero output,
         // this adds some randomness for that case.
-        let mut v3: u64 = 0xf3016d19bc9ad940;
+        let v3: u64 = 0xf3016d19bc9ad940;
 
-        (v0, v1, v2, v3) = self.sipround(v0, v1, v2, v3);
-        (v0, v1, v2, v3) = self.sipround(v0, v1, v2, v3);
-        (v0, v1, v2, v3) = self.sipround(v0, v1, v2, v3);
-        (v0, _, _, _) = self.sipround(v0, v1, v2, v3);
+        let (v0, v1, v2, v3) = sipround(v0, v1, v2, v3);
+        let (v0, v1, v2, v3) = sipround(v0, v1, v2, v3);
+        let (v0, v1, v2, v3) = sipround(v0, v1, v2, v3);
+        let (v0, _, _, _) = sipround(v0, v1, v2, v3);
 
         v0
     }
@@ -126,7 +125,7 @@ impl PerfectRng {
 
         let mut j = 1;
         while j <= self.rounds {
-            if j & 1 == 1 {
+            if j % 2 != 0 {
                 let tmp = (left + self.round(j, right)) & self.a_mask;
                 left = right;
                 right = tmp;
@@ -139,7 +138,7 @@ impl PerfectRng {
             }
         }
 
-        if j % 2 == 0 {
+        if self.rounds % 2 != 0 {
             (left << self.a_bits) + right
         } else {
             (right << self.a_bits) + left
@@ -158,7 +157,10 @@ impl PerfectRng {
     /// }
     /// ```
     #[must_use]
+    #[inline]
     pub fn shuffle(&self, m: u64) -> u64 {
+        assert!(m < self.range);
+
         let mut c = self.encrypt(m);
         while c >= self.range {
             c = self.encrypt(c);
@@ -201,8 +203,8 @@ mod tests {
             verify(range, 0, 6);
         }
 
-        verify(10, 0, 3);
-        verify(100, 0, 3);
+        verify(10, 0, 4);
+        verify(100, 0, 4);
     }
 
     #[test]
@@ -210,12 +212,33 @@ mod tests {
     fn dont_get_stuck() {
         for range in [10, 100] {
             for seed in 0..100 {
-                let randomizer = PerfectRng::new(range, seed, 3);
+                let randomizer = PerfectRng::new(range, seed, 4);
 
                 for i in 0..range {
                     let _ = randomizer.shuffle(i);
                 }
             }
         }
+    }
+
+    #[test]
+    fn sufficiently_random() {
+        let randomizer = PerfectRng::new(65536, 0, 4);
+        let mut inc = 0_u32;
+        let mut dec = 0_u32;
+        let mut prev = 0;
+
+        for i in 0..65535 {
+            let shuffled_i = randomizer.shuffle(i);
+            if shuffled_i > prev {
+                inc += 1;
+            } else {
+                dec += 1;
+            }
+            prev = shuffled_i;
+        }
+
+        // 512 = 0.003% chance of failing on a completely random hash
+        assert!(inc.abs_diff(dec) < 512, "insufficiently random");
     }
 }
