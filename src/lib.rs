@@ -146,52 +146,6 @@ impl PerfectRng {
         }
     }
 
-    // fn decrypt(&self, m: u64) -> u64 {
-    //     let mut right;
-    //     let mut left;
-    //     let mut tmp;
-
-    //     if self.rounds % 2 != 0 {
-    //         right = m % self.a;
-    //         left = m / self.a;
-    //     } else {
-    //         left = m % self.a;
-    //         right = m / self.a;
-    //     }
-
-    //     for j in (1..=self.rounds).rev() {
-    //         if j & 1 != 0 {
-    //             tmp = self.round(j, left);
-    //             if tmp > right {
-    //                 tmp = tmp - right;
-    //                 tmp = self.a - (tmp % self.a);
-    //                 if tmp == self.a {
-    //                     tmp = 0;
-    //                 }
-    //             } else {
-    //                 tmp = right - tmp;
-    //                 tmp %= self.a;
-    //             }
-    //         } else {
-    //             tmp = self.round(j, left);
-    //             if tmp > right {
-    //                 tmp = tmp - right;
-    //                 tmp = self.b - (tmp % self.b);
-    //                 if tmp == self.b {
-    //                     tmp = 0;
-    //                 }
-    //             } else {
-    //                 tmp = right - tmp;
-    //                 tmp %= self.b;
-    //             }
-    //         }
-    //         right = left;
-    //         left = tmp;
-    //     }
-
-    //     self.a * right + left
-    // }
-
     /// Randomize your input.
     ///
     /// ```
@@ -211,14 +165,6 @@ impl PerfectRng {
         }
         c
     }
-
-    // pub fn unshuffle(&self, m: u64) -> u64 {
-    //     let mut c = self.decrypt(m);
-    //     while c >= self.range {
-    //         c = self.decrypt(c);
-    //     }
-    //     c
-    // }
 }
 
 #[cfg(test)]
