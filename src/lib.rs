@@ -48,7 +48,7 @@ impl PerfectRng {
     /// Use [`PerfectRng::from_range`] to use the default seed and rounds.
     ///
     /// - `range`: The highest value you will try to shuffle. For example, this
-    /// would be 2**32 for an IPv4 address.
+    ///    would be 2**32 for an IPv4 address.
     /// - `seed`: The seed used for randomization.
     /// - `rounds`: The amount of times the randomization is done, to make it more random. Default is 3.
     ///
@@ -92,7 +92,7 @@ impl PerfectRng {
         v1 = v1.rotate_left(13) ^ v0;
         v3 = v3.rotate_left(16) ^ v2;
         v0 = v0.rotate_left(32);
-    
+
         v2 = v2.wrapping_add(v1);
         v0 = v0.wrapping_add(v3);
         v1 = v1.rotate_left(17) ^ v2;
@@ -110,13 +110,13 @@ impl PerfectRng {
         // all zeroes will lead to an all-zero output,
         // this adds some randomness for that case.
         let mut v3: u64 = 0xf3016d19bc9ad940;
-        
+
         (v0, v1, v2, v3) = self.sipround(v0, v1, v2, v3);
         (v0, v1, v2, v3) = self.sipround(v0, v1, v2, v3);
         (v0, v1, v2, v3) = self.sipround(v0, v1, v2, v3);
         (v0, _, _, _) = self.sipround(v0, v1, v2, v3);
 
-        return v0
+        v0
     }
 
     #[inline]
