@@ -1,6 +1,6 @@
 [package]
 name = "perfect_rand"
-version = "0.1.5"
+version = "0.2.0"
 edition = "2021"
 description = "A cipher for randomizing numbers in an arbitrary range."
 license = "Unlicense"
