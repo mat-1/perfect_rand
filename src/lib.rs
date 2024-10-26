@@ -32,6 +32,16 @@ pub struct PerfectRng {
     b_mask: u64,
 }
 
+#[derive(Default, Debug)]
+pub struct PerfectRng32 {
+    range: u32,
+    seed: u32,
+    rounds: usize,
+    a_bits: u32,
+    a_mask: u32,
+    b_mask: u32,
+}
+
 fn count_bits(num: u64) -> u32 {
     let mut bits = 0;
     while (num >> bits) != 0 {
@@ -57,14 +67,34 @@ fn sipround(mut v0: u64, mut v1: u64, mut v2: u64, mut v3: u64) -> (u64, u64, u6
     (v0, v1, v2, v3)
 }
 
+#[inline]
+fn sipround32(mut v0: u32, mut v1: u32, mut v2: u32, mut v3: u32) -> (u32, u32, u32, u32) {
+    v0 = v0.wrapping_add(v1);
+    v2 = v2.wrapping_add(v3);
+    v1 = v1.rotate_left(5) ^ v0;
+    v3 = v3.rotate_left(8) ^ v2;
+    v0 = v0.rotate_left(16);
+
+    v2 = v2.wrapping_add(v1);
+    v0 = v0.wrapping_add(v3);
+    v1 = v1.rotate_left(13) ^ v2;
+    v3 = v3.rotate_left(17) ^ v0;
+    v2 = v2.rotate_left(16);
+
+    (v0, v1, v2, v3)
+}
+
 impl PerfectRng {
     /// Create a new perfect cipher with a specific range, seed, and rounds.
     /// Use [`PerfectRng::from_range`] to use the default seed and rounds.
     ///
-    /// - `range`: The highest value you will try to shuffle. For example, this
-    ///    would be 2**32 for an IPv4 address.
+    /// - `range`: The number of possible values. In other words, the highest
+    ///   value you will try to shuffle. For example, this would be 2**32-1 for
+    ///   an IPv4 address.
     /// - `seed`: The seed used for randomization.
-    /// - `rounds`: The amount of times the randomization is done, to make it more random. Default is 3.
+    /// - `rounds`: The amount of times the randomization is done, to make it
+    ///   more random. Recommended value is either 3 or 4, depending on your
+    ///   performance/quality needs.
     ///
     /// ```
     /// # use perfect_rand::PerfectRng;
@@ -169,6 +199,121 @@ impl PerfectRng {
     }
 }
 
+impl PerfectRng32 {
+    /// Create a new perfect cipher with a specific range, seed, and rounds.
+    /// Use [`PerfectRng::from_range`] to use the default seed and rounds.
+    ///
+    /// - `range`: The number of possible values. In other words, the highest
+    ///   value you will try to shuffle. For example, this would be 2**32-1 for
+    ///   an IPv4 address.
+    /// - `seed`: The seed used for randomization.
+    /// - `rounds`: The amount of times the randomization is done, to make it
+    ///   more random. Recommended value is either 3 or 4, depending on your
+    ///   performance/quality needs.
+    ///
+    /// ```
+    /// # use perfect_rand::PerfectRng;
+    /// let perfect_rng = PerfectRng::new(10, rand::random(), 4);
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn new(range: u32, seed: u32, rounds: usize) -> Self {
+        assert_ne!(range, 0);
+
+        let bits = count_bits((range - 1) as u64);
+        let b = bits / 2;
+        // if an odd number of bits, a gets the leftover bit
+        let a = bits - b;
+
+        PerfectRng32 {
+            range,
+            seed,
+            rounds,
+            a_bits: a,
+            a_mask: (1 << a) - 1,
+            b_mask: (1 << b) - 1,
+        }
+    }
+
+    /// Create a new `PerfectRng` with a random seed and default rounds.
+    ///
+    /// ```
+    /// # use perfect_rand::PerfectRng;
+    /// let perfect_rng = PerfectRng::from_range(2u64.pow(32));
+    /// ```
+    #[must_use]
+    pub fn from_range(range: u32) -> Self {
+        Self::new(range, rand::random(), 4)
+    }
+
+    #[inline]
+    fn round(&self, j: usize, right: u32) -> u32 {
+        let v0 = self.seed;
+        let v1 = j as u32;
+        let v2 = right;
+        // all zeroes will lead to an all-zero output,
+        // this adds some randomness for that case.
+        let v3: u32 = 0xbc9ad940;
+
+        let (v0, v1, v2, v3) = sipround32(v0, v1, v2, v3);
+        let (v0, v1, v2, v3) = sipround32(v0, v1, v2, v3);
+        let (v0, v1, v2, v3) = sipround32(v0, v1, v2, v3);
+        let (v0, _, _, _) = sipround32(v0, v1, v2, v3);
+
+        v0
+    }
+
+    #[inline]
+    fn encrypt(&self, m: u32) -> u32 {
+        let mut left = m & self.a_mask;
+        let mut right = m >> self.a_bits;
+
+        let mut j = 1;
+        while j <= self.rounds {
+            if j % 2 != 0 {
+                let tmp = (left + self.round(j, right)) & self.a_mask;
+                left = right;
+                right = tmp;
+                j += 1;
+            } else {
+                let tmp = (left + self.round(j, right)) & self.b_mask;
+                left = right;
+                right = tmp;
+                j += 1;
+            }
+        }
+
+        if self.rounds % 2 != 0 {
+            (left << self.a_bits) + right
+        } else {
+            (right << self.a_bits) + left
+        }
+    }
+
+    /// Randomize your input.
+    ///
+    /// ```
+    /// # use perfect_rand::PerfectRng;
+    ///
+    /// let randomizer = PerfectRng::from_range(100);
+    /// for i in 0..100 {
+    ///     let shuffled_i = randomizer.shuffle(i);
+    ///     assert!(shuffled_i <= 100);
+    /// }
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn shuffle(&self, m: u32) -> u32 {
+        assert!(m < self.range);
+
+        let mut c = self.encrypt(m);
+        while c >= self.range {
+            c = self.encrypt(c);
+        }
+        c
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use ntest::timeout;
@@ -239,6 +384,9 @@ mod tests {
         }
 
         // 512 = 0.003% chance of failing on a completely random hash
-        assert!(inc.abs_diff(dec) < 512, "insufficiently random");
+        assert!(
+            inc.abs_diff(dec) < 512,
+            "insufficiently random (inc: {inc}, dec: {dec})"
+        );
     }
 }
